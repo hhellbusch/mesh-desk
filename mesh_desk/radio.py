@@ -16,6 +16,22 @@ log = logging.getLogger("mesh_desk.radio")
 BROADCAST_IDS = {"^all", "!ffffffff", "ffffffff", "0xffffffff"}
 
 
+def _as_dict(value) -> dict:
+    return value if isinstance(value, dict) else {}
+
+
+def _snapshot_values(mapping) -> list:
+    """Copy a dict the radio thread is also mutating. Retry if it changes mid-iteration."""
+    if not isinstance(mapping, dict):
+        return []
+    for _ in range(4):
+        try:
+            return list(mapping.values())
+        except RuntimeError:
+            continue
+    return []
+
+
 def _ui(fn: Callable[..., None], *args: Any) -> None:
     from gi.repository import GLib
 
@@ -76,7 +92,10 @@ class RadioSession:
     def _lost(self, interface=None, **_kwargs) -> None:
         _ui(self._on_lost)
 
-    def _packet(self, packet=None, **_kwargs) -> None:
+    def _packet(self, packet=None, interface=None, **_kwargs) -> None:
+        # `interface` is part of the pubsub topic contract. The name has to match
+        # what meshtastic sends or every packet raises SenderUnknownMsgDataError.
+        del interface
         if not self._on_packet or not isinstance(packet, dict):
             return
         try:
@@ -172,38 +191,51 @@ class RadioSession:
         if iface is None or getattr(iface, "myInfo", None) is None:
             return ""
         num = iface.myInfo.my_node_num
-        node = iface.nodesByNum.get(num) or {}
-        return (node.get("user") or {}).get("id") or ""
+        node = _as_dict(iface.nodesByNum.get(num) if isinstance(getattr(iface, "nodesByNum", None), dict) else None)
+        user = _as_dict(node.get("user"))
+        return user.get("id") or ""
 
     def nodes(self) -> list[dict]:
         with self.lock:
             iface = self.iface
-            if iface is None:
-                return []
-            snapshot = list(iface.nodes.values())
+        if iface is None:
+            return []
         rows = []
-        for node in snapshot:
-            user = node.get("user") or {}
-            metrics = node.get("deviceMetrics") or {}
-            pos = node.get("position") or {}
+        for node in _snapshot_values(getattr(iface, "nodes", None)):
+            if not isinstance(node, dict):
+                continue
+            user = _as_dict(node.get("user"))
+            metrics = _as_dict(node.get("deviceMetrics"))
+            pos = _as_dict(node.get("position"))
             lat = pos.get("latitude")
             lon = pos.get("longitude")
-            if not lat and not lon:
-                lat = lon = None
+            try:
+                lat_f = float(lat) if lat is not None else None
+                lon_f = float(lon) if lon is not None else None
+            except (TypeError, ValueError):
+                lat_f = lon_f = None
+            if not lat_f and not lon_f:
+                lat_f = lon_f = None
+            hops = node.get("hopsAway")
+            try:
+                hops = int(hops) if hops is not None else None
+            except (TypeError, ValueError):
+                hops = None
+            long_name = user.get("longName") or user.get("id") or "unknown"
             rows.append(
                 {
-                    "id": user.get("id") or "",
+                    "id": str(user.get("id") or ""),
                     "num": node.get("num"),
-                    "long": user.get("longName") or user.get("id") or "unknown",
-                    "short": user.get("shortName") or "",
+                    "long": str(long_name),
+                    "short": str(user.get("shortName") or ""),
                     "role": str(user.get("role") or ""),
                     "hw": str(user.get("hwModel") or ""),
-                    "hops": node.get("hopsAway"),
+                    "hops": hops,
                     "battery": metrics.get("batteryLevel"),
                     "last_heard": node.get("lastHeard"),
                     "snr": node.get("snr"),
-                    "lat": lat,
-                    "lon": lon,
+                    "lat": lat_f,
+                    "lon": lon_f,
                     "favorite": bool(node.get("isFavorite")),
                 }
             )
@@ -320,8 +352,8 @@ class RadioSession:
                     node.removeFavorite(node_id)
                 iface = self.iface
                 if iface is not None:
-                    for entry in iface.nodes.values():
-                        user = entry.get("user") or {}
+                    for entry in _snapshot_values(getattr(iface, "nodes", None)):
+                        user = _as_dict(entry.get("user") if isinstance(entry, dict) else None)
                         if user.get("id") == node_id:
                             entry["isFavorite"] = favorite
             except Exception as exc:

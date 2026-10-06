@@ -52,6 +52,8 @@ class MainWindow(Adw.ApplicationWindow):
         self.view: tuple[str, object] = ("channel", 0)
         self._closing = False
         self._selecting = False
+        self._suppress_select = False
+        self._node_refresh_pending = False
         self._row_node: dict[Gtk.ListBoxRow, str] = {}
         self._row_channel: dict[Gtk.ListBoxRow, int] = {}
 
@@ -250,10 +252,19 @@ class MainWindow(Adw.ApplicationWindow):
         self.config.clear()
 
     def _on_nodes(self) -> None:
-        self._refresh_nodes()
+        if self._closing or self._node_refresh_pending:
+            return
+        self._node_refresh_pending = True
+        GLib.timeout_add(400, self._debounced_nodes)
+
+    def _debounced_nodes(self) -> bool:
+        self._node_refresh_pending = False
+        if not self._closing:
+            self._refresh_nodes()
+        return False
 
     def _refresh_nodes(self) -> None:
-        if not hasattr(self, "map"):
+        if not hasattr(self, "map") or self._closing:
             return
         rows = self.radio.nodes()
         self._nodes_by_id = {r["id"]: r for r in rows if r["id"]}
@@ -263,78 +274,104 @@ class MainWindow(Adw.ApplicationWindow):
         limit = None if selected_filter > 4 else (None, 3600, 6 * 3600, 86400, 7 * 86400)[selected_filter]
         if limit is not None:
             now = time.time()
-            rows = [
-                r
-                for r in rows
-                if r.get("last_heard") and now - float(r["last_heard"]) <= limit
-            ]
-        selected = None
-        if self.view[0] == "dm":
-            selected = self.view[1]
-        child = self.node_list.get_first_child()
-        while child is not None:
-            nxt = child.get_next_sibling()
-            self.node_list.remove(child)
-            self._row_node.pop(child, None)
-            child = nxt
-        self._row_node.clear()
-        for row in rows:
-            label = Gtk.Label(xalign=0)
-            label.set_hexpand(True)
-            hops = "—" if row["hops"] is None else str(row["hops"])
-            star = "★ " if row["favorite"] else ""
-            battery = f" · {row['battery']}%" if row["battery"] is not None else ""
-            label.set_text(f"{star}{row['long']}\n{hops} hops · {_heard(row['last_heard'])}{battery}")
-            label.set_wrap(True)
-            info = Gtk.Button(label="Info")
-            info.add_css_class("flat")
-            info.connect("clicked", lambda _b, nid=row["id"]: self._open_node(nid))
-            line = Gtk.Box(spacing=6)
-            line.append(label)
-            line.append(info)
-            holder = Gtk.ListBoxRow()
-            holder.set_child(line)
-            self._row_node[holder] = row["id"]
-            self.node_list.append(holder)
-            if row["id"] == selected:
-                self.node_list.select_row(holder)
+            kept = []
+            for row in rows:
+                heard = row.get("last_heard")
+                try:
+                    fresh = heard is not None and now - float(heard) <= limit
+                except (TypeError, ValueError):
+                    fresh = False
+                if fresh:
+                    kept.append(row)
+            rows = kept
+        selected = self.view[1] if self.view[0] == "dm" else None
+        self.node_list.handler_block_by_func(self._node_selected)
+        try:
+            child = self.node_list.get_first_child()
+            while child is not None:
+                nxt = child.get_next_sibling()
+                self.node_list.remove(child)
+                child = nxt
+            self._row_node.clear()
+            for row in rows:
+                label = Gtk.Label(xalign=0)
+                label.set_hexpand(True)
+                hops = "—" if row["hops"] is None else str(row["hops"])
+                star = "★ " if row["favorite"] else ""
+                battery = f" · {row['battery']}%" if row["battery"] is not None else ""
+                label.set_text(f"{star}{row['long']}\n{hops} hops · {_heard(row['last_heard'])}{battery}")
+                label.set_wrap(True)
+                info = Gtk.Button(label="Info")
+                info.add_css_class("flat")
+                gesture = Gtk.GestureClick()
+                gesture.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
+                gesture.connect("pressed", self._info_pressed, row["id"])
+                info.add_controller(gesture)
+                line = Gtk.Box(spacing=6)
+                line.append(label)
+                line.append(info)
+                holder = Gtk.ListBoxRow()
+                holder.set_child(line)
+                self._row_node[holder] = row["id"]
+                self.node_list.append(holder)
+                if row["id"] == selected:
+                    self.node_list.select_row(holder)
+        finally:
+            self.node_list.handler_unblock_by_func(self._node_selected)
+
+    def _info_pressed(self, gesture, _n, _x, _y, node_id: str) -> None:
+        self._suppress_select = True
+        gesture.set_state(Gtk.EventSequenceState.CLAIMED)
+        self._open_node(node_id)
 
     def _show_channels(self, channels: list[dict]) -> None:
-        child = self.channel_list.get_first_child()
-        while child is not None:
-            nxt = child.get_next_sibling()
-            self.channel_list.remove(child)
-            self._row_channel.pop(child, None)
-            child = nxt
-        self._row_channel.clear()
-        first = None
-        for ch in channels:
-            label = Gtk.Label(label=ch["label"], xalign=0)
-            holder = Gtk.ListBoxRow()
-            holder.set_child(label)
-            self._row_channel[holder] = ch["index"]
-            self.channel_list.append(holder)
-            if first is None:
-                first = holder
-        if first is not None and self.view[0] == "channel":
-            self.channel_list.select_row(first)
+        self.channel_list.handler_block_by_func(self._channel_selected)
+        try:
+            child = self.channel_list.get_first_child()
+            while child is not None:
+                nxt = child.get_next_sibling()
+                self.channel_list.remove(child)
+                child = nxt
+            self._row_channel.clear()
+            first = None
+            for ch in channels:
+                label = Gtk.Label(label=ch["label"], xalign=0)
+                holder = Gtk.ListBoxRow()
+                holder.set_child(label)
+                self._row_channel[holder] = ch["index"]
+                self.channel_list.append(holder)
+                if first is None:
+                    first = holder
+            if first is not None and self.view[0] == "channel":
+                self.channel_list.select_row(first)
+        finally:
+            self.channel_list.handler_unblock_by_func(self._channel_selected)
 
     def _channel_selected(self, _box, row) -> None:
-        if row is None or self._selecting:
+        if row is None or self._selecting or self._suppress_select:
+            return
+        index = self._row_channel.get(row)
+        if index is None:
             return
         self._selecting = True
         self.node_list.unselect_all()
         self._selecting = False
-        self.view = ("channel", int(self._row_channel[row]))
+        self.view = ("channel", int(index))
         self._reload_messages()
 
     def _node_selected(self, _box, row) -> None:
+        if self._suppress_select:
+            self._suppress_select = False
+            return
         if row is None or self._selecting:
+            return
+        node_id = self._row_node.get(row)
+        if not node_id:
             return
         self._selecting = True
         self.channel_list.unselect_all()
         self._selecting = False
-        self.view = ("dm", self._row_node[row])
+        self.view = ("dm", node_id)
         self._reload_messages()
 
     def _name(self, node_id: str) -> str:

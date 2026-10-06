@@ -200,20 +200,26 @@ class MapPage(Gtk.Box):
             step *= 2
         while step * self.k > 140 and step > 0.25:
             step /= 2
+        if step <= 0:
+            step = 1.0
         lon0 = math.floor((self.clon - width / 2 / self.k) / step) * step
         lat0 = math.floor((self.clat - height / 2 / self.k) / step) * step
+        drawn = 0
         lon = lon0
-        while lon < self.clon + width / self.k:
+        while lon < self.clon + width / self.k and drawn < 30:
             x, _y = self._project(self.clat, lon, width, height)
             cr.move_to(x, 0)
             cr.line_to(x, height)
             lon += step
+            drawn += 1
+        drawn = 0
         lat = lat0
-        while lat < self.clat + height / self.k:
+        while lat < self.clat + height / self.k and drawn < 30:
             _x, y = self._project(lat, self.clon, width, height)
             cr.move_to(0, y)
             cr.line_to(width, y)
             lat += step
+            drawn += 1
         cr.stroke()
 
         now = time.time()
@@ -239,7 +245,7 @@ class MapPage(Gtk.Box):
             if labeled < 24:
                 cr.set_source_rgba(color.red, color.green, color.blue, 0.9)
                 cr.move_to(x + 8, y - 4)
-                cr.show_text(row.get("short") or row.get("long") or "")
+                cr.show_text(str(row.get("short") or row.get("long") or ""))
                 labeled += 1
 
         if not self._screen:

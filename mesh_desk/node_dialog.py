@@ -12,6 +12,9 @@ from gi.repository import Adw, Gtk
 def present_node(parent, node: dict, *, on_favorite, on_traceroute, on_message) -> None:
     dialog = Adw.Dialog(title=node.get("long") or "Node")
     dialog.set_content_width(460)
+    dialog.set_can_close(True)
+    # Floating card over a scrim. The scrim click and Escape call close() and nothing else.
+    dialog.set_presentation_mode(Adw.DialogPresentationMode.FLOATING)
     box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
     box.set_margin_top(12)
     box.set_margin_bottom(12)
@@ -60,7 +63,11 @@ def present_node(parent, node: dict, *, on_favorite, on_traceroute, on_message) 
         favorite.set_sensitive(False)
         trace.set_sensitive(False)
         message.set_sensitive(False)
-    dialog.set_child(box)
+    # Header bar supplies the close button. It only dismisses the dialog.
+    view = Adw.ToolbarView()
+    view.add_top_bar(Adw.HeaderBar())
+    view.set_content(box)
+    dialog.set_child(view)
     dialog.present(parent)
 
 

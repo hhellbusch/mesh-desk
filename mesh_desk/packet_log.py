@@ -53,6 +53,8 @@ class PacketLog(Gtk.Box):
             lines.append(line)
         buf = self.view.get_buffer()
         buf.set_text("\n".join(lines))
+        if not self.view.get_mapped():
+            return
         end = buf.get_end_iter()
         self.view.scroll_to_iter(end, 0.0, False, 0.0, 1.0)
 
