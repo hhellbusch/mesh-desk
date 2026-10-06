@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=mesh-desk
+Comment=Meshtastic client for Linux
+Exec=mesh-desk
+Icon=network-wireless
+Terminal=false
+Type=Application
+Categories=Network;HamRadio;
+StartupNotify=true

@@ -1,0 +1,18 @@
+[project]
+name = "mesh-desk"
+version = "0.2.0"
+description = "Linux desktop client for Meshtastic"
+readme = "README.md"
+license = "GPL-3.0-only"
+requires-python = ">=3.11"
+dependencies = ["meshtastic>=2.6"]
+
+[project.scripts]
+mesh-desk = "mesh_desk.app:main"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["mesh_desk*"]
