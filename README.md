@@ -1,6 +1,6 @@
 # mesh-desk
 
-A Linux desktop client for [Meshtastic](https://meshtastic.org/). One radio at a time, over Bluetooth, USB serial, or TCP. English UI.
+A Linux desktop client for [Meshtastic](https://meshtastic.org/). One radio at a time, over Bluetooth, USB serial, or TCP.
 
 It is a GTK front end on the official Python library. Chat history stays in a local SQLite file because the radio does not keep a full inbox.
 
@@ -40,9 +40,10 @@ The window follows the desktop light/dark preference. On Cinnamon that is the GT
 
 ## Not in this app
 
-- Firmware flashing
-- Remote administration of a second node
-- A multi-radio dashboard
+- Firmware flashing. That stays with the Meshtastic project.
+- Several radios connected at the same time.
+
+Administering a second node through the one you are connected to is planned. It uses the same settings screens, sent over the mesh, and it will not write until that node's config has been read.
 
 ## License
 
