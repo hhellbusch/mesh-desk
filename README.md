@@ -45,6 +45,10 @@ The window follows the desktop light/dark preference. On Cinnamon that is the GT
 
 Administering a second node through the one you are connected to is planned. It uses the same settings screens, sent over the mesh, and it will not write until that node's config has been read.
 
+## Development
+
+`pytest` runs without a radio. Bluetooth connect and a real Save stay a manual check. Read `AGENTS.md` before changing how the app talks to a radio.
+
 ## License
 
 GPL-3.0-only, the same license as the Meshtastic Python library this program imports.

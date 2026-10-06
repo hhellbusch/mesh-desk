@@ -221,10 +221,13 @@ class RadioSession:
                 hops = int(hops) if hops is not None else None
             except (TypeError, ValueError):
                 hops = None
-            long_name = user.get("longName") or user.get("id") or "unknown"
+            node_id = str(user.get("id") or "")
+            if not node_id:
+                continue
+            long_name = user.get("longName") or node_id
             rows.append(
                 {
-                    "id": str(user.get("id") or ""),
+                    "id": node_id,
                     "num": node.get("num"),
                     "long": str(long_name),
                     "short": str(user.get("shortName") or ""),
@@ -314,24 +317,12 @@ class RadioSession:
             return None
         return getattr(iface, "metadata", None)
 
-    def save_writes(self, prepare, on_ok, on_err) -> None:
+    def save_writes(self, prepare, on_ok, on_err, *, config_loaded: bool = True) -> None:
         """prepare(node) returns write callables. One settings transaction, then reboot."""
 
         def work() -> None:
             try:
-                iface = self.iface
-                if iface is None or getattr(iface, "localNode", None) is None:
-                    raise RuntimeError("Not connected")
-                node = iface.localNode
-                writes = list(prepare(node))
-                if not writes:
-                    raise RuntimeError("Nothing to write")
-                node.beginSettingsTransaction()
-                time.sleep(0.25)
-                for fn in writes:
-                    fn()
-                    time.sleep(0.3)
-                node.commitSettingsTransaction()
+                self.perform_save(prepare, config_loaded=config_loaded)
             except Exception as exc:
                 log.exception("save failed")
                 _ui(on_err, str(exc))
@@ -339,6 +330,28 @@ class RadioSession:
             _ui(on_ok)
 
         threading.Thread(target=work, name="mesh-config", daemon=True).start()
+
+    def perform_save(self, prepare, *, config_loaded: bool = True) -> None:
+        """Write one settings transaction.
+
+        Remote admin must pass config_loaded=True only after that node's config
+        has been read. A write of a config we never read can wipe the node.
+        """
+        if not config_loaded:
+            raise RuntimeError("Config has not been read")
+        iface = self.iface
+        if iface is None or getattr(iface, "localNode", None) is None:
+            raise RuntimeError("Not connected")
+        node = iface.localNode
+        writes = list(prepare(node))
+        if not writes:
+            raise RuntimeError("Nothing to write")
+        node.beginSettingsTransaction()
+        time.sleep(0.25)
+        for fn in writes:
+            fn()
+            time.sleep(0.3)
+        node.commitSettingsTransaction()
 
     def set_favorite(self, node_id: str, favorite: bool, on_ok, on_err) -> None:
         def work() -> None:
