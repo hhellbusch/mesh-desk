@@ -164,6 +164,9 @@ def present_help(parent, title: str, body: str) -> None:
     dialog.set_can_close(True)
     dialog.set_presentation_mode(Adw.DialogPresentationMode.FLOATING)
     label = Gtk.Label(label=body, xalign=0, yalign=0, wrap=True, selectable=True)
+    # A selectable label selects all of its text when it receives focus.
+    # The dialog would otherwise focus it on open and highlight the whole explanation.
+    label.set_can_focus(False)
     label.set_wrap_mode(Pango.WrapMode.WORD_CHAR)
     label.set_max_width_chars(46)
     label.set_margin_top(12)

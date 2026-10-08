@@ -33,6 +33,7 @@ def present_node(parent, node: dict, *, on_favorite, on_traceroute, on_message) 
         lines.append(f"{node['lat']:.5f}, {node['lon']:.5f}")
     text = "\n".join(line for line in lines if line)
     body = Gtk.Label(label=text, xalign=0, selectable=True)
+    body.set_can_focus(False)
     box.append(body)
 
     favorite = Adw.SwitchRow(title="Favorite on this radio")
@@ -46,6 +47,7 @@ def present_node(parent, node: dict, *, on_favorite, on_traceroute, on_message) 
     box.append(favorite)
 
     result = Gtk.Label(label="", xalign=0, wrap=True, selectable=True)
+    result.set_can_focus(False)
     row = Gtk.Box(spacing=8)
     trace = Gtk.Button(label="Traceroute")
     trace.connect(
