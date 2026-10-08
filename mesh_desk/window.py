@@ -15,6 +15,7 @@ from mesh_desk.config_panel import ConfigPanel
 from mesh_desk.known import auto_radio, load_radios, remember_radio, set_auto_connect
 from mesh_desk.map_view import MapPage
 from mesh_desk.node_dialog import present_node
+from mesh_desk.nodelist import node_matches, sort_nodes
 from mesh_desk.packet_log import PacketLog
 from mesh_desk.radio import BROADCAST_IDS, RadioSession
 from mesh_desk.store import Store
@@ -80,10 +81,17 @@ class MainWindow(Adw.ApplicationWindow):
         side.append(self.channel_list)
         side.append(Gtk.Separator())
         side.append(Gtk.Label(label="Nodes — click to message, Info for detail", xalign=0))
+        self.node_search = Gtk.SearchEntry()
+        self.node_search.set_placeholder_text("Search by name")
+        self.node_search.connect("search-changed", lambda *_a: self._refresh_nodes())
+        self.node_sort = Gtk.DropDown.new_from_strings(["Hops", "Last seen", "Name"])
+        self.node_sort.connect("notify::selected", lambda *_a: self._refresh_nodes())
         self.heard = Gtk.DropDown.new_from_strings(
             ["Any time", "Last hour", "Last 6 hours", "Last day", "Last week"]
         )
         self.heard.connect("notify::selected", lambda *_a: self._refresh_nodes())
+        side.append(self.node_search)
+        side.append(self.node_sort)
         side.append(self.heard)
         side.append(nodes_scroll)
         side.set_size_request(280, -1)
@@ -297,12 +305,13 @@ class MainWindow(Adw.ApplicationWindow):
         self._nodes_by_id = {r["id"]: r for r in rows if r["id"]}
         self.names = {r["id"]: r["long"] for r in rows if r["id"]}
         self.map.set_nodes(rows)
+        listed = list(rows)
         selected_filter = self.heard.get_selected()
         limit = None if selected_filter > 4 else (None, 3600, 6 * 3600, 86400, 7 * 86400)[selected_filter]
         if limit is not None:
             now = time.time()
             kept = []
-            for row in rows:
+            for row in listed:
                 heard = row.get("last_heard")
                 try:
                     fresh = heard is not None and now - float(heard) <= limit
@@ -310,7 +319,13 @@ class MainWindow(Adw.ApplicationWindow):
                     fresh = False
                 if fresh:
                     kept.append(row)
-            rows = kept
+            listed = kept
+        query = self.node_search.get_text() if hasattr(self, "node_search") else ""
+        listed = [row for row in listed if node_matches(row, query)]
+        modes = ("hops", "seen", "name")
+        mode_index = self.node_sort.get_selected() if hasattr(self, "node_sort") else 0
+        mode = modes[mode_index] if mode_index < len(modes) else "hops"
+        listed = sort_nodes(listed, mode)
         selected = self.view[1] if self.view[0] == "dm" else None
         self.node_list.handler_block_by_func(self._node_selected)
         try:
@@ -320,7 +335,7 @@ class MainWindow(Adw.ApplicationWindow):
                 self.node_list.remove(child)
                 child = nxt
             self._row_node.clear()
-            for row in rows:
+            for row in listed:
                 label = Gtk.Label(xalign=0)
                 label.set_hexpand(True)
                 hops = "—" if row["hops"] is None else str(row["hops"])

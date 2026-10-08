@@ -242,14 +242,6 @@ class RadioSession:
                     "favorite": bool(node.get("isFavorite")),
                 }
             )
-        rows.sort(
-            key=lambda r: (
-                not r["favorite"],
-                r["hops"] is None,
-                r["hops"] if r["hops"] is not None else 99,
-                r["long"].lower(),
-            )
-        )
         return rows
 
     def channels(self) -> list[dict]:

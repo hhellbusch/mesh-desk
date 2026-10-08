@@ -24,7 +24,7 @@ Copy `app.meshdesk.MeshDesk.desktop` to `~/.local/share/applications/` if you wa
 
 ## Use
 
-**Chat** — channels and direct messages. Click a node to open a direct thread. **Info** shows role, battery, hardware, position, favorite, and traceroute.
+**Chat** — channels and direct messages. Click a node to open a direct thread. The node list can be searched by name and sorted by hops, last seen, or name. **Info** shows role, battery, hardware, position, favorite, and traceroute.
 
 **Map** — nodes that have sent a GPS position, plus a hop histogram. Drag to pan, scroll to zoom. No map tiles, so the map still works with the internet down. Waypoints on this page are broadcast on the primary channel after a confirm.
 

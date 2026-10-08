@@ -58,9 +58,9 @@ def test_nodes_skip_bad_records_and_keep_hop_zero() -> None:
             },
         }
     )
-    rows = session.nodes()
-    assert [row["id"] for row in rows] == ["!far", "!zero"]
-    assert rows[1]["hops"] == 0
+    rows = {row["id"]: row for row in session.nodes()}
+    assert set(rows) == {"!zero", "!far"}
+    assert rows["!zero"]["hops"] == 0
 
 
 def test_channels_hide_keys_and_disabled_slots() -> None:
