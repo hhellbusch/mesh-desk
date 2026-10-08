@@ -16,7 +16,7 @@ Do not call library methods that `sys.exit` on failure. That includes `requestCo
 
 ## Config writes
 
-A Save reboots the radio and drops the link. Save stays explicit. Do not write config to try the UI.
+A Save reboots the radio and drops the link. Save stays explicit. Do not write config to try the UI. Info on the Radio page only explains a section. It must not write.
 
 `RadioSession.perform_save` is the only write path. Remote admin passes `config_loaded=True` only after that node's config has been read. `config_loaded=False` raises and does not call `prepare`. A write of a config that was never read can wipe the node.
 

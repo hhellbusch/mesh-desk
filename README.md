@@ -28,7 +28,7 @@ Copy `app.meshdesk.MeshDesk.desktop` to `~/.local/share/applications/` if you wa
 
 **Map** — nodes that have sent a GPS position, plus a hop histogram. Drag to pan, scroll to zoom. No map tiles, so the map still works with the internet down. Waypoints on this page are broadcast on the primary channel after a confirm.
 
-**Radio** — settings read from the connected firmware: user, device, LoRa, position, power, display, network, Bluetooth, security, channels, and modules the firmware includes. Each section has its own Save. Save asks first, then the radio reboots and drops the link. A channel key can be set to the public default or replaced with a new random key. The key is not shown and is not stored by this app. Security private keys and admin keys are not editable.
+**Radio** — settings read from the connected firmware: user, device, LoRa, position, power, display, network, Bluetooth, security, channels, and modules the firmware includes. Each section has Info, which explains that section and does not change the radio, and its own Save. Save asks first, then the radio reboots and drops the link. A channel key can be set to the public default or replaced with a new random key. The key is not shown and is not stored by this app. Security private keys and admin keys are not editable.
 
 **Log** — a short rolling summary of packets. Not a hex dump.
 

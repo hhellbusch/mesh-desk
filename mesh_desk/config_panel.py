@@ -17,6 +17,7 @@ from meshtastic.protobuf import channel_pb2
 from meshtastic.util import genPSK256
 
 from mesh_desk.forms import ProtoForm, apply_fields
+from mesh_desk.radio_help import help_for, present_help
 
 Role = channel_pb2.Channel.Role
 
@@ -120,6 +121,7 @@ class ConfigPanel(Adw.PreferencesPage):
             form.fill(message)
             if name == "security":
                 self._add_public_key(form.group, message)
+            self._info(form.group, name, title)
             self._section_save(form, title, name, module=False)
             self._remember(form.group)
         self._add_channels(node)
@@ -153,6 +155,7 @@ class ConfigPanel(Adw.PreferencesPage):
                 "licensed": licensed.get_active(),
             }
 
+        self._info(group, "user", "User")
         self._button(
             group,
             "Save the node name and reboot the radio?",
@@ -196,6 +199,15 @@ class ConfigPanel(Adw.PreferencesPage):
             self._on_save(heading, body, bound)
 
         button.connect("clicked", clicked)
+        self._add_header_button(group, button)
+
+    def _info(self, group, key: str, title: str) -> None:
+        button = Gtk.Button(label="Info")
+        button.add_css_class("flat")
+        button.connect("clicked", lambda _b, key=key, title=title: present_help(self, title, help_for(key)))
+        self._add_header_button(group, button)
+
+    def _add_header_button(self, group, button) -> None:
         existing = group.get_header_suffix()
         if existing is None:
             group.set_header_suffix(button)
@@ -231,6 +243,7 @@ class ConfigPanel(Adw.PreferencesPage):
             name = Adw.EntryRow(title="Name")
             name.set_text("Private")
             group.add(name)
+            self._info(group, "add_channel", "Add a channel")
 
             def collect(name=name):
                 return name.get_text()
@@ -249,6 +262,8 @@ class ConfigPanel(Adw.PreferencesPage):
         title = "Primary channel" if ch.role == Role.PRIMARY else f"Channel {index}"
         settings = ch.settings
         group = Adw.PreferencesGroup(title=title)
+        help_key = "channel_primary" if ch.role == Role.PRIMARY else "channel_secondary"
+        self._info(group, help_key, title)
         name = Adw.EntryRow(title="Name")
         name.set_text(settings.name or "")
         uplink = Adw.SwitchRow(title="MQTT uplink")
@@ -287,7 +302,7 @@ class ConfigPanel(Adw.PreferencesPage):
                     lambda node, index=index: _prepare_delete(node, index),
                 ),
             )
-            group.set_header_suffix(delete)
+            self._add_header_button(group, delete)
 
         def collect(
             index=index,
@@ -325,15 +340,7 @@ class ConfigPanel(Adw.PreferencesPage):
             )
 
         button.connect("clicked", clicked)
-        existing = group.get_header_suffix()
-        if existing is None:
-            group.set_header_suffix(button)
-        else:
-            box = Gtk.Box(spacing=6)
-            group.set_header_suffix(None)
-            box.append(existing)
-            box.append(button)
-            group.set_header_suffix(box)
+        self._add_header_button(group, button)
         return group
 
     def _add_modules(self, node, mask: int) -> None:
@@ -350,6 +357,7 @@ class ConfigPanel(Adw.PreferencesPage):
             if form.empty:
                 continue
             form.fill(message)
+            self._info(form.group, field.name, title)
             self._section_save(form, title, field.name, module=True)
             self._remember(form.group)
 
