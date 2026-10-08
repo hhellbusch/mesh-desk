@@ -32,7 +32,7 @@ Copy `app.meshdesk.MeshDesk.desktop` to `~/.local/share/applications/` if you wa
 
 **Log** — a short rolling summary of packets. Not a hex dump.
 
-Bluetooth addresses you connect are remembered in `$XDG_CONFIG_HOME/mesh-desk/radios.json` (usually `~/.config/mesh-desk/radios.json`). Message history is `$XDG_DATA_HOME/mesh-desk/messages.sqlite`. Neither file is part of this repository.
+Bluetooth addresses you connect are remembered in `$XDG_CONFIG_HOME/mesh-desk/radios.json` (usually `~/.config/mesh-desk/radios.json`). In the connect dialog, **Connect when mesh-desk opens** uses that radio the next time you start the app. Message history is `$XDG_DATA_HOME/mesh-desk/messages.sqlite`. Neither file is part of this repository.
 
 If a Bluetooth connect fails, press a button on the radio to wake it, and disconnect any other client first. BlueZ allows one session. Quit mesh-desk before using the `meshtastic` CLI against the same radio.
 

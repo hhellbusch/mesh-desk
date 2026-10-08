@@ -26,7 +26,7 @@ Channel keys are never shown, logged, or stored. The packet log is a short summa
 
 ## What stays off the machine and out of git
 
-Do not print, log, or commit channel keys, private keys, admin keys, radio names, Bluetooth addresses, or coordinates. Remembered radios live in `$XDG_CONFIG_HOME/mesh-desk/radios.json`. Messages live in `$XDG_DATA_HOME/mesh-desk/messages.sqlite`. Neither file belongs in this repository.
+Do not print, log, or commit channel keys, private keys, admin keys, radio names, Bluetooth addresses, or coordinates. Remembered radios live in `$XDG_CONFIG_HOME/mesh-desk/radios.json`. One of those radios may be marked to connect when the app opens. That choice stays in `radios.json`. Messages live in `$XDG_DATA_HOME/mesh-desk/messages.sqlite`. Neither file belongs in this repository.
 
 ## Out of scope
 

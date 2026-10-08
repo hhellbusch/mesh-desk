@@ -12,7 +12,7 @@ gi.require_version("Adw", "1")
 from gi.repository import Adw, GLib, Gtk
 
 from mesh_desk.config_panel import ConfigPanel
-from mesh_desk.known import load_radios, remember_radio
+from mesh_desk.known import auto_radio, load_radios, remember_radio, set_auto_connect
 from mesh_desk.map_view import MapPage
 from mesh_desk.node_dialog import present_node
 from mesh_desk.packet_log import PacketLog
@@ -142,6 +142,20 @@ class MainWindow(Adw.ApplicationWindow):
         self.connect("close-request", self._on_close)
         self._show_channels([{"index": 0, "label": "LongFast (public)"}])
         self._reload_messages()
+        self._want_auto: bool | None = None
+        GLib.idle_add(self._maybe_autoconnect)
+
+    def _maybe_autoconnect(self) -> bool:
+        if self._closing or self.radio.iface is not None:
+            return False
+        radio = auto_radio()
+        if radio is None:
+            return False
+        addr = radio["address"]
+        self.status.set_label(f"Connecting {addr}…")
+        self.connect_btn.set_sensitive(False)
+        self.radio.connect_ble(addr, self._connected, self._failed)
+        return False
 
     def _open_connect(self, _btn) -> None:
         if self.radio.iface is not None:
@@ -157,6 +171,7 @@ class MainWindow(Adw.ApplicationWindow):
         box.set_margin_start(12)
         box.set_margin_end(12)
         radios = load_radios()
+        self._known_auto = {radio["address"]: bool(radio.get("auto")) for radio in radios}
         self._addr = Gtk.Entry()
         self._addr.set_placeholder_text("Bluetooth address")
         if radios:
@@ -171,9 +186,13 @@ class MainWindow(Adw.ApplicationWindow):
             box.append(hint)
         for radio in radios:
             btn = Gtk.Button(label=f"{radio['name']}  {radio['address']}")
-            btn.connect("clicked", lambda _b, a=radio["address"]: self._addr.set_text(a))
+            btn.connect("clicked", lambda _b, a=radio["address"]: self._pick_radio(a))
             box.append(btn)
         box.append(self._addr)
+        self._auto = Gtk.CheckButton(label="Connect when mesh-desk opens")
+        if radios:
+            self._auto.set_active(bool(radios[0].get("auto")))
+        box.append(self._auto)
         self._tcp = Gtk.Entry(placeholder_text="TCP host, if the radio has Wi-Fi")
         box.append(self._tcp)
         row = Gtk.Box(spacing=8)
@@ -197,9 +216,14 @@ class MainWindow(Adw.ApplicationWindow):
             self.status.set_label("Need a BLE address")
             return
         dialog.close()
+        self._want_auto = bool(self._auto.get_active())
         self.status.set_label(f"Connecting {addr}…")
         self.connect_btn.set_sensitive(False)
         self.radio.connect_ble(addr, self._connected, self._failed)
+
+    def _pick_radio(self, address: str) -> None:
+        self._addr.set_text(address)
+        self._auto.set_active(self._known_auto.get(address, False))
 
     def _start_serial(self, dialog: Adw.Dialog) -> None:
         dialog.close()
@@ -222,6 +246,9 @@ class MainWindow(Adw.ApplicationWindow):
         self.connect_btn.set_label("Disconnect")
         my = self.radio.my_id()
         remember_radio(self.radio.address)
+        if self._want_auto is not None:
+            set_auto_connect(self.radio.address, self._want_auto)
+            self._want_auto = None
         self.status.set_label(f"Connected {self.radio.address}" + (f"  {my}" if my else ""))
         self._show_channels(self.radio.channels())
         self._refresh_nodes()
